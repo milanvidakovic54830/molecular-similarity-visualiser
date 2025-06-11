@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import dash_bio as bio
 import plotly.figure_factory as ff
+from copy import deepcopy
 
 tversky_parametrs = html.Div([
                         dbc.Label("Weight a", className="ms-2 mb-2"),
@@ -320,11 +321,23 @@ def submit_form(n_clicks: int, fingerprint_type:str=None, similarity_coefficient
             else:
                 head_length = len(df.columns)
 
+            
+            
             masked_df = df.where(np.triu(np.ones(df.shape), k=1).astype(bool)).head(head_length)
             similarity_series = masked_df.stack()
             top_similar = similarity_series.sort_values(ascending=False)
             top_similar_df = top_similar.reset_index()
             top_similar_df.columns = ['Molecule 1', 'Molecule 2', 'Similarity']
+
+            swapped_df = top_similar_df.rename(columns={
+                                                        'Molecule 1': 'Molecule 2',
+                                                        'Molecule 2': 'Molecule 1'
+                                                    }
+                                                )[['Molecule 1', 'Molecule 2', 'Similarity']]
+            
+            full_symetric_df = pd.concat([top_similar_df, swapped_df], ignore_index=True)
+            full_symetric_df = full_symetric_df.sort_values(by='Similarity', ascending=False)
+
 
             heatmap = go.Figure(
                 data=go.Heatmap(
@@ -532,8 +545,8 @@ def submit_form(n_clicks: int, fingerprint_type:str=None, similarity_coefficient
 
             table = dash_table.DataTable(
                 id='similarity-table',
-                columns=[{"name": col, "id": col, "type": "text"} for col in top_similar_df.columns],
-                data=top_similar_df.to_dict('records'),
+                columns=[{"name": col, "id": col, "type": "text"} for col in full_symetric_df.columns],
+                data=full_symetric_df.to_dict('records'),
                 page_size=10,
                 sort_action='native',
                 filter_action='native',
